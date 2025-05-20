@@ -154,6 +154,7 @@ class Agent(Generic[Context]):
 		enable_memory: bool = True,
 		memory_config: MemoryConfig | None = None,
 		source: str | None = None,
+		auto_close_browser: bool | None = None,  # NEW: control browser auto-close
 	):
 		if page_extraction_llm is None:
 			page_extraction_llm = llm
@@ -192,6 +193,7 @@ class Agent(Generic[Context]):
 		# Memory settings
 		self.enable_memory = enable_memory
 		self.memory_config = memory_config
+		self.auto_close_browser = auto_close_browser or True
 
 		# Initialize state
 		self.state = injected_agent_state or AgentState()
@@ -601,6 +603,9 @@ class Agent(Generic[Context]):
 				)
 				self._make_history_item(model_output, state, result, metadata)
 
+			if self.auto_close_browser is not False:  # default to closing if not set
+				await self.close()
+
 	@time_execution_async('--handle_step_error (agent)')
 	async def _handle_step_error(self, error: Exception) -> list[ActionResult]:
 		"""Handle all types of errors that can occur during a step"""
@@ -991,7 +996,8 @@ class Agent(Generic[Context]):
 					# Log any error during script generation/saving
 					logger.error(f'Failed to save Playwright script: {script_gen_err}', exc_info=True)
 
-			await self.close()
+			if self.auto_close_browser is not False:  # default to closing if not set
+				await self.close()
 
 			if self.settings.generate_gif:
 				output_path: str = 'agent_history.gif'
